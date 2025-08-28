@@ -1,0 +1,9 @@
+{
+  "name": "frontend",
+  "private": true,
+  "scripts": {
+    "dev": "echo Dev server opcional (Vite) && sleep 3600",
+    "build": "echo Construye tu FE con Vite/Webpack aquí"
+  },
+  "devDependencies": {}
+}

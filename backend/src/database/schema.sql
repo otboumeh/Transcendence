@@ -1,0 +1,2 @@
+-- Aquí van tus tablas. Ejemplo:
+-- CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT);
