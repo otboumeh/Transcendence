@@ -1,9 +1,12 @@
 {
-  "name": "frontend",
-  "private": true,
-  "scripts": {
-    "dev": "echo Dev server opcional (Vite) && sleep 3600",
-    "build": "echo Construye tu FE con Vite/Webpack aquí"
-  },
-  "devDependencies": {}
-}
+	"name": "final-project",
+	"version": "1.0.0",
+	"scripts": {
+	  "build": "node ./node_modules/tailwindcss/lib/cli.js -i ./src/styles/input.css -o ./dist/output.css",
+	  "start": "npm run build && serve -s . -l 3000"
+	},
+	"devDependencies": {
+	  "tailwindcss": "^3.4.1",
+	  "serve": "^14.2.1"
+	}
+  }

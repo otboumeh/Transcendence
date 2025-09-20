@@ -1,17 +1,21 @@
-FROM node:18-alpine
+# Start with a clean Node.js environment
+# -alpine
+FROM node:lts
 
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copiar definiciones de paquetes
-COPY package.json ./
-COPY tsconfig.json ./
+# Copy package.json to install dependencies
+COPY package.json .
 
-# Instalar dependencias
+# Install all dependencies (tailwindcss and serve)
 RUN npm install
 
-# Copiar el código fuente
-COPY src ./src
+# Copy all your other files
+COPY . .
 
+# Tell Docker that the container will listen on port 3000
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# The command to run when the container starts
+CMD [ "npm", "start" ]

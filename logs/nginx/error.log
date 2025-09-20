@@ -1,0 +1,14 @@
+2025/09/15 14:15:14 [warn] 1#1: the "listen ... http2" directive is deprecated, use the "http2" directive instead in /etc/nginx/nginx.conf:21
+2025/09/15 14:15:14 [emerg] 1#1: cannot load certificate "/etc/nginx/certs/fullchain.pem": BIO_new_file() failed (SSL: error:80000002:system library::No such file or directory:calling fopen(/etc/nginx/certs/fullchain.pem, r) error:10000080:BIO routines::no such file)
+2025/09/20 11:30:28 [warn] 1#1: the "listen ... http2" directive is deprecated, use the "http2" directive instead in /etc/nginx/conf.d/reverse-proxy.conf:2
+2025/09/20 11:30:28 [emerg] 1#1: "location" directive is not allowed here in /etc/nginx/conf.d/ws_game.conf:2
+2025/09/20 14:47:16 [warn] 1#1: the "listen ... http2" directive is deprecated, use the "http2" directive instead in /etc/nginx/conf.d/reverse-proxy.conf:2
+2025/09/20 14:47:16 [emerg] 1#1: "location" directive is not allowed here in /etc/nginx/conf.d/ws_game.conf:2
+2025/09/20 14:57:40 [warn] 1#1: the "listen ... http2" directive is deprecated, use the "http2" directive instead in /etc/nginx/conf.d/reverse-proxy.conf:2
+2025/09/20 14:57:40 [emerg] 1#1: "location" directive is not allowed here in /etc/nginx/conf.d/ws_game.conf:2
+2025/09/20 15:00:10 [warn] 1#1: the "listen ... http2" directive is deprecated, use the "http2" directive instead in /etc/nginx/conf.d/reverse-proxy.conf:2
+2025/09/20 15:00:10 [emerg] 1#1: "location" directive is not allowed here in /etc/nginx/conf.d/ws_game.conf:2
+2025/09/20 15:00:11 [warn] 1#1: the "listen ... http2" directive is deprecated, use the "http2" directive instead in /etc/nginx/conf.d/reverse-proxy.conf:2
+2025/09/20 15:00:11 [emerg] 1#1: "location" directive is not allowed here in /etc/nginx/conf.d/ws_game.conf:2
+2025/09/20 15:01:39 [warn] 1#1: the "listen ... http2" directive is deprecated, use the "http2" directive instead in /etc/nginx/conf.d/reverse-proxy.conf:2
+2025/09/20 15:01:39 [emerg] 1#1: "location" directive is not allowed here in /etc/nginx/conf.d/ws_game.conf:2
