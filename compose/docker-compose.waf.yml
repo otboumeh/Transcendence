@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  waf:
+    build:
+      context: ../waf
+      dockerfile: Dockerfile
+      args:
+        PARANOIA_LEVEL: ${PARANOIA_LEVEL:-1}
+    container_name: transcendence-waf
+    ports:
+      - "8000:80"
+      - "8443:443"
+    volumes:
+      - ../waf/logs:/var/log/modsec:rw
+    depends_on:
+      - nginx
+    networks: [default, monitoring]
+    environment:
+      - TZ=UTC
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    expose:
+      - "80"
+      - "443"

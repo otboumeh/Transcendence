@@ -1,16 +1,24 @@
-# ==============================
-# FRONTEND MAKEFILE
-# ==============================
-COMPOSE = docker compose -f ../compose/docker-compose.yml
+.PHONY: up down logs
 
 up:
-	$(COMPOSE) up -d frontend
+	docker-compose up -d --build
 
 down:
-	$(COMPOSE) stop frontend
+	docker-compose down
 
 logs:
-	$(COMPOSE) logs -f frontend
+	docker-compose logs -f
 
-bash:
-	docker exec -it transcendence-frontend sh
+clean:
+	docker-compose down --rmi all --volumes --remove-orphans
+
+setup: ## Configura el proyecto por primera vez (instala dependencias y autoriza Gmail)
+	@echo "--- Paso 1: Instalando dependencias de Composer... ---"
+	docker-compose run --rm php composer install
+	@echo "\n--- Paso 2: Levantando los contenedores... ---"
+	docker-compose up -d --build
+	@echo "\n--- Paso 3: Ejecutando el script de configuración de Gmail... ---"
+	@echo ">>> A continuación, se te pedirá que copies una URL en tu navegador y pegues un código de vuelta. <<<"
+	@sleep 3
+	docker-compose exec php php api/auth/gmail_api/setup_gmail.php
+	chmod 666 srcs/public/config/google_token.json

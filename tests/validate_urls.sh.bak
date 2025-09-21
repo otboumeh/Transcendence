@@ -1,0 +1,131 @@
+#!/bin/bash#!/bin/bash
+
+
+
+# Colores para la salida# Colores para la salida
+
+GREEN='\033[0;32m'GREEN="\033[0;32m"
+
+RED='\033[0;31m'RED="\033[0;31m"
+
+NC='\033[0m'NC="\033[0m"
+
+
+
+# Host de Nginx (usando el nombre del servicio en docker-compose)# Host de Nginx (usando el nombre del servicio en docker-compose)
+
+NGINX_HOST="transcendence-nginx"NGINX_HOST="transcendence-nginx"
+
+
+
+# Función para probar una URL# Función para probar una URL
+
+test_url() {test_url() {
+
+    local path=$1    local path=$1
+
+    local description=$2    local description=$2
+
+    local method=${3:-GET}    local method=${3:-GET}
+
+    local expected_code=${4:-200}    local expected_code=${4:-200}
+
+    local url="http://${NGINX_HOST}${path}"    local url="http://${NGINX_HOST}${path}"
+
+        
+
+    echo -n "Testing $description ($path)... "    echo -n "Testing $description ($path)... "
+
+        
+
+    response=$(curl -s -o /dev/null -w "%{http_code}" -X $method $url)    response=$(curl -s -o /dev/null -w "%{http_code}" -X $method $url)
+
+        
+
+    if [ "$response" = "$expected_code" ]; then    if [ "$response" = "$expected_code" ]; then
+
+        echo -e "${GREEN}OK${NC} (Got $response)"        echo -e "${GREEN}OK${NC} (Got $response)"
+
+    else    else
+
+        echo -e "${RED}FAIL${NC} (Expected $expected_code, got $response)"        echo -e "${RED}FAIL${NC} (Expected $expected_code, got $response)"
+
+        # Mostrar más detalles en caso de error        # Mostrar más detalles en caso de error
+
+        if [ "$response" = "000" ]; then        if [ "$response" = "000" ]; then
+
+            echo "  Connection failed - Check if Nginx is running and accessible"            echo "  Connection failed - Check if Nginx is running and accessible"
+
+        else        else
+
+            echo "  Full response:"            echo "  Full response:"
+
+            curl -v $url 2>&1 | sed 's/^/  /'            curl -v $url 2>&1 | sed 's/^/  /'
+
+        fi        fi
+
+    fi    fi
+
+}}
+
+
+
+# Verificar si nginx está corriendo# Verificar si nginx está corriendo
+
+echo "Checking Nginx container..."echo "Checking Nginx container..."
+
+if ! docker ps | grep -q "${NGINX_HOST}"; thenif ! docker ps | grep -q "${NGINX_HOST}"; then
+
+    echo -e "${RED}ERROR: Nginx container (${NGINX_HOST}) is not running${NC}"    echo -e "${RED}ERROR: Nginx container (${NGINX_HOST}) is not running${NC}"
+
+    exit 1    exit 1
+
+fifi
+
+
+
+# URLs a probar# URLs a probar
+
+echo "Starting URL validation tests..."echo "Starting URL validation tests..."
+
+echo "-------------------------------"echo "-------------------------------"
+
+
+
+# Frontend# Frontend
+
+test_url "/" "Frontend redirect" "GET" "302"test_url "/" "Frontend redirect" "GET" "302"
+
+test_url "/frontend/" "Frontend SPA"test_url "/frontend/" "Frontend SPA"
+
+
+
+# Backend API# Backend API
+
+test_url "/api/users" "Users API"test_url "/api/users" "Users API"
+
+test_url "/api/matches" "Matches API"test_url "/api/matches" "Matches API"
+
+test_url "/api/ladder" "Ladder API"test_url "/api/ladder" "Ladder API"
+
+
+
+# Monitoring# Monitoring
+
+test_url "/prometheus/" "Prometheus UI"test_url "/prometheus/" "Prometheus UI"
+
+test_url "/grafana/" "Grafana UI"test_url "/grafana/" "Grafana UI"
+
+test_url "/cadvisor/" "cAdvisor UI"test_url "/cadvisor/" "cAdvisor UI"
+
+
+
+# Status endpoints# Status endpoints
+
+test_url "/status" "Nginx Status" "GET" "200"test_url "/status" "Nginx Status" "GET" "200"
+
+
+
+echo "-------------------------------"echo "-------------------------------"
+
+echo "URL validation tests completed"echo "URL validation tests completed"

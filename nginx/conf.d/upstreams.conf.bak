@@ -1,0 +1,24 @@
+upstream frontend {
+    server frontend:3000;
+}
+
+upstream backend {
+    server backend:9000;
+}
+
+# Temporarily commented out until game-ws service is ready
+#upstream game-ws {
+#    server game-ws:8080;
+#}
+
+upstream prometheus {
+    server prometheus:9090;
+}
+
+upstream grafana {
+    server grafana:3000;
+}
+
+upstream cadvisor {
+    server cadvisor:8080;
+}

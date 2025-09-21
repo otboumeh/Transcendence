@@ -1,0 +1,13 @@
+# ======================================
+# Inicialización y Dependencias
+# ======================================
+init: install-deps certs
+	@echo "$(GREEN)Inicialización completa!$(RESET)"
+
+install-deps:
+	@echo "$(CYAN)Instalando dependencias...$(RESET)"
+	@if [ ! -d "backend/vendor" ]; then \
+		echo "$(YELLOW)Instalando dependencias de PHP...$(RESET)"; \
+		docker run --rm -v $(PWD)/backend:/app composer:latest composer install; \
+	fi
+	@echo "$(GREEN)Dependencias instaladas correctamente$(RESET)"

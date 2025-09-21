@@ -28,22 +28,25 @@ t ?= build
         nginx-logs backend-logs frontend-logs game-logs \
         grafana-up prometheus-up exporters-up \
         sh certs certs-clean nginx-test nginx-reload \
-        status status-monitor \
+        status status-monitor init install-deps \
         up-% down-% restart-% rebuild-% logs-% ps-% sh-% \
         make-frontend make-backend make-game \
         rmake-frontend rmake-backend rmake-game \
         logs-save logs-save-% logs-tee logs-tee-% \
-        frontend-down backend-down game-down nginx-down
+        frontend-down backend-down game-down nginx-down \
+        security-up security-test security-down \
+        tunnel-up tunnel-down cloudflare-certs \
+        test demo-tunnel stop-tunnel
 
 # ======================================
 # ASCII & HELP
 # ======================================
 help:
 	@echo "$(CYAN)"
-	@echo "╔══════════════════════════════════════════════════════╗"
-	@echo "║    🚀 $(YELLOW)Transcendence Dev Orchestrator$(CYAN)                 ║"
-	@echo "╠══════════════════════════════════════════════════════╣"
-	@echo "║ $(WHITE)Comandos generales$(CYAN)                                      ║"
+	@echo "╔═════════════════════════════════════════════════════════════════════════╗"
+	@echo "║    🚀 $(YELLOW)Transcendence Dev Orchestrator$(CYAN)                    ║"
+	@echo "╠═════════════════════════════════════════════════════════════════════════╣"
+	@echo "║ $(WHITE)Comandos generales$(CYAN)                                       ║"
 	@echo "║  $(GREEN)make up$(CYAN)            → Levantar todo                      ║"
 	@echo "║  $(GREEN)make down$(CYAN)          → Apagar todo                        ║"
 	@echo "║  $(GREEN)make build$(CYAN)         → Construir imágenes                 ║"
@@ -52,29 +55,34 @@ help:
 	@echo "║  $(GREEN)make ps$(CYAN)            → Estado de contenedores             ║"
 	@echo "║  $(GREEN)make clean$(CYAN)         → Down + volúmenes                   ║"
 	@echo "║  $(GREEN)make prune$(CYAN)         → Limpiar imágenes huérfanas         ║"
-	@echo "╠══════════════════════════════════════════════════════╣"
-	@echo "║ $(WHITE)Servicios$(CYAN)                                               ║"
+	@echo "╠═════════════════════════════════════════════════════════════════════════╣"
+	@echo "║ $(WHITE)Servicios$(CYAN)                                                ║"
 	@echo "║  $(GREEN)make up-<svc>/down-<svc>/restart-<svc>/rebuild-<svc>$(CYAN)    ║"
 	@echo "║  $(GREEN)make logs-<svc>/ps-<svc>/sh-<svc>$(CYAN)                       ║"
 	@echo "║  Ej.: up-nginx, rebuild-frontend, sh-game-ws                            ║"
-	@echo "╠══════════════════════════════════════════════════════╣"
+	@echo "╠═════════════════════════════════════════════════════════════════════════╣"
 	@echo "║ $(WHITE)Make internos por servicio$(CYAN)                               ║"
 	@echo "║  $(GREEN)make make-frontend t=dev$(CYAN)  (host)                        ║"
 	@echo "║  $(GREEN)make rmake-frontend t=build$(CYAN) (en contenedor)             ║"
-	@echo "╠══════════════════════════════════════════════════════╣"
+	@echo "╠═════════════════════════════════════════════════════════════════════════╣"
 	@echo "║ $(WHITE)Logs a archivo$(CYAN)                                           ║"
-	@echo "║  $(GREEN)make logs-save$(CYAN)            → stack a logs/<ts>.log        ║"
-	@echo "║  $(GREEN)make logs-save-<svc>$(CYAN)      → servicio a logs/<ts>.log     ║"
-	@echo "║  $(GREEN)make logs-tee / logs-tee-<svc>$(CYAN) → stream + guardar        ║"
-	@echo "╠══════════════════════════════════════════════════════╣"
-	@echo "║ $(WHITE)Utilidades$(CYAN)                                             ║"
-	@echo "║  $(GREEN)make certs$(CYAN)         → Crear SSL autofirmado (dev)       ║"
+	@echo "║  $(GREEN)make logs-save$(CYAN)            → stack a logs/<ts>.log       ║"
+	@echo "║  $(GREEN)make logs-save-<svc>$(CYAN)      → servicio a logs/<ts>.log    ║"
+	@echo "║  $(GREEN)make logs-tee / logs-tee-<svc>$(CYAN) → stream + guardar       ║"
+	@echo "╠═════════════════════════════════════════════════════════════════════════╣"
+	@echo "║ $(WHITE)Utilidades$(CYAN)                                               ║"
+	@echo "║  $(GREEN)make certs$(CYAN)         → Crear SSL autofirmado (dev)        ║"
 	@echo "║  $(GREEN)make certs-clean$(CYAN)   → Borrar certs                       ║"
 	@echo "║  $(GREEN)make nginx-test$(CYAN)    → Validar config Nginx               ║"
 	@echo "║  $(GREEN)make nginx-reload$(CYAN)  → Reload Nginx                       ║"
 	@echo "║  $(GREEN)make sh service=nginx$(CYAN) → Entrar con sh (modo clásico)    ║"
 	@echo "║  $(GREEN)make status$(CYAN)        → Check HTTP(s)                      ║"
 	@echo "║  $(GREEN)make status-monitor$(CYAN)→ Check endpoints monitoring         ║"
+	@echo "╠═════════════════════════════════════════════════════════════════════════╣"
+	@echo "║ $(WHITE)Cloudflare$(CYAN)                                               ║"
+	@echo "║  $(GREEN)make tunnel-up$(CYAN)     → Iniciar túnel Cloudflare           ║"
+	@echo "║  $(GREEN)make tunnel-down$(CYAN)   → Detener túnel Cloudflare           ║"
+	@echo "║  $(GREEN)make cloudflare-certs$(CYAN) → Generar certificados SSL        ║"
 	@echo "╚══════════════════════════════════════════════════════╝$(RESET)"
 
 # ======================================
@@ -301,3 +309,61 @@ logs-tee-%:
 	echo "$(CYAN)[LOGS:$${svc}]$(RESET) Streaming + guardado en $$fname (Ctrl+C para salir)"; \
 	mkdir -p $(LOGS_DIR); \
 	$(COMPOSE) logs -f --tail=200 --no-color "$${svc}" | tee "$$fname"
+
+# ======================================
+# SECURITY TARGETS
+# ======================================
+security-up:
+	@echo "$(GREEN)[SECURITY]$(RESET) Starting with WAF..."
+	$(COMPOSE) -f ./compose/docker-compose.waf.yml up -d
+
+security-test:
+	@echo "$(BLUE)[SECURITY]$(RESET) Running security tests..."
+	$(COMPOSE) -f ./compose/docker-compose.waf.yml -f ./compose/docker-compose.tests.yml run --rm tester pytest -v tests/test_security.py --html=reports/report.html --junitxml=reports/junit.xml
+
+security-down:
+	@echo "$(RED)[SECURITY]$(RESET) Stopping WAF stack..."
+	$(COMPOSE) -f ./compose/docker-compose.waf.yml down -v
+# ======================================
+# CLOUDFLARE
+# ======================================
+
+# Túnel de Cloudflare
+tunnel-up:
+	@echo "$(GREEN)[TUNNEL]$(RESET) Iniciando túnel de Cloudflare…"
+	@./scripts/cloudflare/tunnel.sh transcendence-tunnel $${CLOUDFLARE_DOMAIN}
+
+tunnel-down:
+	@echo "$(RED)[TUNNEL]$(RESET) Deteniendo túnel de Cloudflare…"
+	@cloudflared tunnel cleanup transcendence-tunnel
+
+# Certificados SSL con Cloudflare
+cloudflare-certs:
+	@echo "$(BLUE)[CERTS]$(RESET) Generando certificados SSL con Cloudflare…"
+	@./scripts/cloudflare/generate-certs.sh $${CLOUDFLARE_DOMAIN} $${CLOUDFLARE_EMAIL}# ======================================
+# Testing
+# ======================================
+test: ## Smoke tests
+	@printf "$(YELLOW)▶ Running smoke tests...$(RESET)\n"
+	@echo "▶ HTTP→HTTPS..."
+	@curl -skI http://localhost | grep -E '301|308' >/dev/null || (echo "$(RED)FAIL$(RESET)" && exit 1)
+	@echo "▶ SPA 200..."
+	@curl -skI https://localhost/ --insecure | grep '200' >/dev/null || (echo "$(RED)FAIL$(RESET)" && exit 1)
+	@echo "▶ API reachable..."
+	@curl -skI https://localhost/api/ --insecure | grep -E '200|401|403|404' >/dev/null || (echo "$(RED)FAIL$(RESET)" && exit 1)
+	@printf "$(GREEN)✅ All tests passed!$(RESET)\n"
+
+# ======================================
+# Cloudflare Tunnel Demo
+# ======================================
+OVR := -f compose/docker-compose.tunnel.yml
+
+demo-tunnel: ## Start demo with Cloudflare Tunnel
+	@printf "$(YELLOW)▶ Starting Cloudflare Tunnel demo...$(RESET)\n"
+	$(COMPOSE) $(OVR) up -d
+	@sleep 2
+	@$(COMPOSE) $(OVR) logs cloudflared | grep -m1 -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' || true
+
+stop-tunnel: ## Stop Cloudflare Tunnel demo
+	@printf "$(YELLOW)▶ Stopping Cloudflare Tunnel...$(RESET)\n"
+	$(COMPOSE) $(OVR) down -v --remove-orphans

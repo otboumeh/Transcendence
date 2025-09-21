@@ -1,0 +1,145 @@
+# Rate limiting zones
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=login_limit:10m rate=5r/m;
+
+# IP blocking
+geo $bad_guys {
+    default 0;
+    # Añade aquí IPs bloqueadas
+    # 192.168.1.1 1;
+}
+
+# Upstream para el backend
+upstream backend {
+    server backend:9000;
+    keepalive 32;
+}
+
+# Upstream para WebSocket (temporalmente deshabilitado)
+#upstream websocket {
+#    server game-ws:8080;
+#}
+
+# Configuración SSL
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers on;
+ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+ssl_session_cache shared:SSL:10m;
+ssl_session_timeout 10m;
+ssl_session_tickets off;
+ssl_stapling on;
+ssl_stapling_verify on;
+
+# Redirección HTTP a HTTPS
+server {
+    listen 80;
+    server_name _;
+    
+    # Bloquear IPs maliciosas
+    if ($bad_guys) {
+        return 444;
+    }
+    
+    return 301 https://$host$request_uri;
+}
+
+# Servidor HTTPS principal
+server {
+    listen 443 ssl http2;
+    server_name _;
+
+    # Configuración SSL
+    ssl_certificate /etc/nginx/certs/server.crt;
+    ssl_certificate_key /etc/nginx/certs/server.key;
+    ssl_dhparam /etc/nginx/certs/dhparam.pem;
+
+    # Incluir headers de seguridad
+    include /etc/nginx/conf.d/security-headers.conf;
+
+    # Bloquear IPs maliciosas
+    if ($bad_guys) {
+        return 444;
+    }
+
+    # Frontend (SPA)
+    location / {
+        root /usr/share/nginx/html;
+        try_files $uri $uri/ /index.html;
+        
+        # Caching para archivos estáticos
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 30d;
+            add_header Cache-Control "public, no-transform";
+        }
+    }
+
+    # API Backend
+    location /api/ {
+        limit_req zone=api_limit burst=20 nodelay;
+        
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Timeout configurations
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Login endpoint con rate limiting más estricto
+    location /api/auth/login.php {
+        limit_req zone=login_limit burst=5 nodelay;
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # WebSocket
+    location /ws/ {
+        proxy_pass http://websocket;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket timeouts
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+
+    # Prometheus (con autenticación básica)
+    location /prometheus/ {
+        auth_basic "Prometheus";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        
+        proxy_pass http://prometheus:9090/;
+        proxy_set_header Host $host;
+    }
+
+    # Grafana
+    location /grafana/ {
+        proxy_pass http://grafana:3000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Denegar acceso a archivos ocultos
+    location ~ /\. {
+        deny all;
+    }
+
+    # Denegar acceso a backups y archivos sensibles
+    location ~ \.(bak|config|sql|fla|psd|ini|log|sh|inc|swp|dist|env.*|yml|yaml|lock|example)$ {
+        deny all;
+    }
+}

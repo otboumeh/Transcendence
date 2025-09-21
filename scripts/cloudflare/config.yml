@@ -1,0 +1,8 @@
+tunnel: 
+credentials-file: /root/.cloudflared/.json
+ingress:
+  - hostname: test.transcendence.42.fr
+    service: http://localhost:80
+  - hostname: "*.test.transcendence.42.fr"
+    service: http://localhost:80
+  - service: http_status:404

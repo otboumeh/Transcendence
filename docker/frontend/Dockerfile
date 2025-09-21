@@ -8,4 +8,4 @@ RUN --mount=type=cache,target=/root/.npm npm ci || npm install
 COPY . .
 EXPOSE 3000
 # En dev: servidor con hot-reload; en prod cambia a serve/NGINX
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD ["npm", "run", "dev"]

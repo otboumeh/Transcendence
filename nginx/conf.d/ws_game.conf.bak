@@ -1,0 +1,8 @@
+# Temporarily commented out until game-ws service is ready
+#location /ws/game {
+#    proxy_pass http://game-ws;
+#    proxy_http_version 1.1;
+#    proxy_set_header Upgrade $http_upgrade;
+#    proxy_set_header Connection "upgrade";
+#    proxy_read_timeout 3600s;
+#}

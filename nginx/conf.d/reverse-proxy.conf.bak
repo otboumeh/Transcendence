@@ -1,0 +1,135 @@
+server {
+    listen 80;
+    listen 443 ssl;
+    server_name _;
+
+    # SSL configuration
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_dhparam /etc/nginx/certs/dhparam.pem;
+    
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options "nosniff";
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Monitoring endpoints
+    # Upstreams for monitoring services
+    upstream prometheus-backend {
+        server prometheus:9090;
+    }
+
+    upstream grafana-backend {
+        server grafana:3000;
+    }
+
+    upstream cadvisor-backend {
+        server cadvisor:8080;
+    }
+
+    location ^~ /prometheus/ {
+        proxy_pass http://prometheus-backend/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location ^~ /grafana/ {
+        proxy_pass http://grafana-backend/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_buffering off;
+    }
+
+    location ^~ /cadvisor/ {
+        proxy_pass http://cadvisor-backend/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    # Nginx status
+    location /status {
+        stub_status;
+        access_log off;
+        allow 127.0.0.1;
+        allow 172.0.0.0/8;
+        deny all;
+    }
+
+    # FRONTEND
+    location = / {
+        return 302 /frontend/;
+    }
+
+    # Frontend static files
+    location /dist/ {
+        proxy_pass http://frontend/dist/;
+        proxy_buffering off;
+        expires 1d;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    location /assets/ {
+        proxy_pass http://frontend/assets/;
+        proxy_buffering off;
+        expires 1d;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    # Frontend application
+    location /frontend/ {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $http_connection;
+        proxy_pass http://frontend/;
+    }
+
+    # BACKEND API
+    location /api/ {
+        root /var/www/html;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass backend;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+    }
+
+    # PHP-FPM handling
+    location ~ \.php$ {
+        root /var/www/html;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass backend;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+    }
+
+    # WEBSOCKET DEL JUEGO - Commented out until game-ws service is enabled
+    #location /ws/game {
+    #    proxy_pass http://game-ws:8080;
+    #    proxy_http_version 1.1;
+    #    proxy_set_header Upgrade $http_upgrade;
+    #    proxy_set_header Connection "upgrade";
+    #    proxy_read_timeout 3600s;
+    #}
+
+    # Health check endpoint
+    location /health {
+        return 200 'healthy\n';
+        add_header Content-Type text/plain;
+    }
+}

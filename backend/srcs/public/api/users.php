@@ -1,205 +1,124 @@
 <?php
-//desarrollo
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
 
-header('Content-Type: application/json');
-require_once '../config/config.php';
-require_once 'utils.php';
+require_once '../utils/init.php';
 
-$database = databaseConnection();
-$idQuest = 1;
-// $idQuest = checkAuthentication($_SERVER['Authorization'/'HTTP_AUTHORIZATION']);
-$requestMethod = $_SERVER['REQUEST_METHOD'];
-$id = $_GET['id'] ?? null;
-$body = file_get_contents('php://input');
-$bodyArray = json_decode($body, true);
-// variables de la peticion
-// error_log(print_r($id, true));
+$requestMethod = $context['requestMethod'];
+$queryId = $context['queryId'];
 
-if ($requestMethod == 'POST') {
-    createUser($database, $bodyArray);
-    return ;
-}
-
-if ($idQuest != 0 || checkDiff($id, $idQuest)) {
-    switch ($requestMethod) {
-        case  'GET':
-            if (!$id) {
-                getUserList($database);
-            }
-            else {
-                getUserDataById($id, $database);
-            }
-            break ;
-        case 'PATCH':
-            if ($id) {
-                $password = $bodyArray['password'] ?? null;
-                if ($password) {
-                    editPassword($database, $id, $password);
-                } else {
-                    editUserData($database, $id, $bodyArray);
-                }
-                break ;
-            }
-            break ;
-        case 'DELETE':
-            if ($id) {
-                deleteUser($database, $id);
-            }
-            break ;
-        default:
-            http_response_code(405);
-            echo json_encode(['error' => 'unauthorized method.']);
-            break ;
-    } 
-} else {
-    http_response_code(403);
-    echo json_encode(['error' => 'forbidden']);
-    return ;
-}
-
-function createUser($database, $body): void {
-    if (!isset($body['username'], $body['email'], $body['password'])) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Bad request. Missing fields.']);
-        return;
-    }
-    
-    $username = $body['username'];
-    $email = $body['email'];
-    $password = password_hash($body['password'], PASSWORD_DEFAULT);
-    
-    $checkQuery = $database->prepare("SELECT id FROM users WHERE username = :username OR email = :email");
-    $checkQuery->bindValue(':username', $username);
-    $checkQuery->bindValue(':email', $email);
-    $result = $checkQuery->execute();
-
-    if ($result->fetchArray(SQLITE3_ASSOC)) {
-        http_response_code(409); // Conflictu
-        echo json_encode(['error' => 'username/email used in other account']);
-        return;
-    }
-
-    try {
-        $secureQuest = $database->prepare("INSERT INTO users (username, email, password_hash) VALUES (:username, :email, :password_hash)");
-        if (!$secureQuest) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Prepare failed', 'details' => $database->lastErrorMsg()]);
-            return;
+switch ($requestMethod) {
+    case 'POST':
+        createUser($context); // no pide auth
+    case 'GET':
+        if ($queryId) {
+            userDataById($context); // no pide auth
         }
-        $secureQuest->bindValue(':username', $username);
-        $secureQuest->bindValue(':email', $email);
-        $secureQuest->bindValue(':password_hash', $password);
-        $secureQuest->execute();
-        echo json_encode(['success' => true, 'message' => 'User created.']);
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode([
-            'error' => "User can't be created...",
-            'details' => $e->getMessage()
-        ]);
-    }
+        else {
+            userList($context); // no pide auth
+        }
+    case 'PATCH':
+        editUserData($context); // pide auth
+    case 'DELETE':
+        deleteUser($context); // pide auth
+    default:
+        response(405, 'unauthorized method');
 }
 
-function getUserList($database) {
-    $dbQuery = "SELECT id, username, elo FROM users ORDER BY id ASC";
-    $data = $database->query($dbQuery);
-    $users = [];
-    while ($rows = $data->fetchArray(SQLITE3_ASSOC)) {
-        $users[] = $rows;
-    }
-    echo json_encode($users);
+function userList($context) {
+    $database = $context['database'];
+
+    $sqlQuery = "SELECT id, username, elo FROM users";
+    $res = $database->exec($sqlQuery);
+    if (!res)
+        response(500, 'Sql error: ' . $database->lastErrorMsg());
+
+    $data = [];
+    while ($row = $res->fetchArray(SQLITE3_ASSOC))
+        $data[] = $row;
+
+    echo json_encode($data);
+    exit ;
 }
 
-function getUserDataById($playerId, $database) {
-    if (!is_numeric($playerId)) {
-        http_response_code(404);
-        echo json_encode(['error' => 'invalid Id']);
-        return ;
-    }
-    $secureQuest = $database->prepare("SELECT id, username, elo FROM users WHERE id = :id");
-    $secureQuest->bindValue(":id", $playerId, SQLITE3_INTEGER);
-    $data = $secureQuest->execute();
-    $arrayData = $data->fetchArray(SQLITE3_ASSOC);
-    if ($arrayData) {
-        echo json_encode($arrayData);
-    } else {
-        http_response_code(404);
-        echo json_encode(['error' => 'user not found']);
-    }
-    return ;
+function userDataById($context) {
+    $database = $context['database'];
+    $queryId = isId($context['queryId']);
+
+    $sqlQuery = "SELECT username, email, elo FROM users WHERE id = '$queryId'";
+    $res = $database->single_query($sqlQuery);
+    if (!$res)
+        response(404, 'user not found');
+
+    echo json_encode($res->fetchArray(SQLITE3_ASSOC));
+    exit ;
 }
 
-function editUserData($database, $playerId, $body) {
-    if (!is_numeric($playerId)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'invalid user ID']);
-        return ;
+function createUser($context) {
+    $database = $context['database'];
+    $body = $context['body'];
+
+    $username = getAndCheck($body, 'username');
+    $email = getAndCheck($body, 'email');
+    $pass = getAndCheck($body, 'password');
+
+    $passwordHash = password_hash($pass, PASSWORD_DEFAULT);
+    $sqlQuery = "INSERT INTO users (username, email, pass) VALUES ('$username', '$email', '$passwordHash')";
+    $res = $database->exec($sqlQuery);
+    if (!res) {
+        response(500, 'Sql error: ' . $database->lastErrorMsg());
     }
-    $updatedData = [];
-    $parameters = [];
-    if (isset($body['username'])) {
-        $updatedData[] = "username = :username";
-        $parameters[':username'] = $body['username'];
-    }
-    if (isset($body['email'])) {
-        $updatedData[] = "email = :email";
-        $parameters[':email'] = $body['email'];
-    }
-    if (empty($updatedData)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'no fields to be updated']);
-        return ;
-    }
-    $query = "UPDATE users SET " . implode(', ', $updatedData) . " WHERE id = :id";
-    $preparedQuery = $database->prepare($query);
-    foreach ($parameters as $key => $value) {
-        $preparedQuery->bindValue($key, $value);
-    }
-    $preparedQuery->bindValue(':id', $playerId, SQLITE3_INTEGER);
-    $preparedQuery->execute();
-    if ($database->changes() > 0) {
-        echo json_encode(['success' => 1, 'message' => 'user updated']);
-    } else {
-        http_response_code(404);
-        echo json_encode(['error' => 'user not found or no changes made']);
-    }
-    return ;
+
+    echo json_encode(['success' => 'new user created']);
+    exit ;
 }
 
-function deleteUser($database, $playerId) {
-    if (!is_numeric($playerId)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'invalid user ID']);
-        return ;
-    }
-    $preparedQuery = $database->prepare("DELETE FROM users WHERE id = :id");
-    $preparedQuery->bindValue(':id', $playerId, SQLITE3_INTEGER);
-    $res = $preparedQuery->execute();
-    if ($database->changes() > 0) {
-        echo json_encode(['success' => 1, 'message' => 'user deleted']);
-    } else {
-        http_response_code(404);
-        echo json_encode(['error' => 'user not found or already deleted']);
-    }
-    return ;
+function editUserData($context) {
+    $id = $context['tokenId'];
+    if ($id !== $context['queryId'])
+        response(403, 'forbidden access');
+    $body = $context['body'];
+    $database = $context['database'];
+
+    if ($context['body']['password'])
+        editUserPass($id, $body, $database);
+
+    $username = getAndCheck($body, 'username');
+    $email = getAndCheck($body, 'email');
+
+    $updates = [ "username = '$username'", "email = '$email'" ];
+    $sqlQuery = "UPDATE users SET" . implode(', ', $updates) . "WHERE id = '$id'";
+    $res = $database->exec($sqlQuery);
+    if (!res)
+        response(500, 'Sql error: ' . $database->lastErrorMsg());
+
+    echo json_encode(['success' => 'user data modified']);
+    exit ;
 }
 
-function editPassword($database, $playerId, $password) {
-    $preparedQuery = $database->prepare("INSERT INTO users (id, password_hash) VALUES (:playerId, :pass)");
-    $preparedQuery->bindValue(":playerId", $playerId);
-    $hashedPass = password_hash($password, PASSWORD_DEFAULT);
-    $preparedQuery->bindValue(":pass", $hashedPass);
-    $res = $preparedQuery->execute();
-    if (!$res) {
-        http_response_code(500); // server internal error
-        echo json_encode(['error' => 'internal server error']);
-        return ;
-    }
+function editUserPass($id, $body, $database) {
+    $newPassword = getAndCheck($body, 'password');
+    $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+
+    $sqlQuery = "UPDATE users SET pass = '$newPasswordHash' WHERE id = '$id'";
+    $res = $database->exec($sqlQuery);
+    if (!res)
+        response(500, 'Sql error: ' . $database->lastErrorMsg());
+
     echo json_encode(['success' => 'password updated']);
-    return ;
+    exit ;
+}
+
+function deleteUser($context) {
+    if ($context['tokenId'] !== $context['queryId'])
+        response(403, 'forbidden access');
+    $database = $context['database'];
+
+    $sqlQuery = "DELETE FROM users WHERE id = :id";
+    $res = $database->exec($sqlQuery);
+    if (!$res)
+        response(500, 'Sql error: ' . $database->lastErrorMsg());
+    
+    echo json_encode(['success' => 'user deleted']);
+    exit ;
 }
 
 ?>

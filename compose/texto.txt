@@ -1,0 +1,324 @@
+# Tarea Copilot — Stack Docker local (localhost→dominio) para ft\_transcendence
+
+**Objetivo:**
+
+* Entregar un entorno reproducible que funcione primero **en localhost** (compatible con los estándares de 42: sin dependencias externas, puertos del host limitados a 80/443 y con TLS autofirmado) y que **opcionalmente** pueda exponerse a Internet con **Cloudflare Tunnel** usando un `docker-compose` override.
+* Orquestación con **Makefile** (targets: `up`, `down`, `re`, `logs`, `ps`, `test`, `demo-tunnel`, `stop-tunnel`).
+
+**Contexto y restricciones 42:**
+
+* Las máquinas del campus tienen puertos bloqueados y no permiten instalar paquetes en el host. Todo debe ir en contenedores.
+* La evaluación debe poder correr **offline**: nada de Cloudflare ni DNS requeridos para aprobar. La parte de dominio/túnel es extra para demos.
+
+---
+
+## Estructura del repositorio (crear/ajustar)
+
+```
+ft_transcendence/
+├─ .env.example                       # variables opcionales para modo dominio
+├─ Makefile
+├─ compose/
+│  ├─ docker-compose.yml              # modo evaluación (localhost)
+│  └─ docker-compose.tunnel.yml       # override opcional (demo externa)
+├─ nginx/
+│  ├─ nginx.conf
+│  └─ conf.d/
+│     └─ app.conf
+├─ frontend/                          # Copilot: añadir Dockerfile con build de producción
+├─ backend/                           # Copilot: Dockerfile + puerto 8080
+└─ game-ws/                           # Copilot: Dockerfile + puerto 8080 y WS
+```
+
+---
+
+## Contenido requerido de archivos (base)
+
+### 1) `compose/docker-compose.yml` — **modo evaluación 42 (localhost)**
+
+```yaml
+services:
+  nginx:
+    image: nginx:stable-alpine
+    depends_on: [frontend, api, game_ws, certgen]
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/conf.d:/etc/nginx/conf.d:ro
+      - certs:/etc/nginx/certs:rw
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  frontend:
+    build: ../frontend
+    expose: ["8080"]
+
+  api:
+    build: ../backend
+    expose: ["8080"]
+
+  game_ws:
+    build: ../game-ws
+    expose: ["8080"]
+
+  certgen:
+    image: alpine:3.20
+    command: >-
+      /bin/sh -c "apk add --no-cache openssl &&
+      [ -f /certs/server.key ] || openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+      -keyout /certs/server.key -out /certs/server.crt -subj '/CN=localhost'"
+    volumes:
+      - certs:/certs
+    restart: "no"
+
+volumes:
+  certs:
+```
+
+### 2) `nginx/nginx.conf`
+
+```nginx
+user  nginx;
+worker_processes auto;
+events { worker_connections 1024; }
+http {
+  include       /etc/nginx/mime.types;
+  sendfile      on;
+  server_tokens off;
+  gzip          on;
+  include /etc/nginx/conf.d/*.conf;
+}
+```
+
+### 3) `nginx/conf.d/app.conf` — SPA + API + WS con HTTPS local
+
+```nginx
+# Redirección a HTTPS
+server {
+  listen 80;
+  server_name localhost;
+  return 301 https://$host$request_uri;
+}
+
+server {
+  listen 443 ssl http2;
+  server_name localhost;
+
+  ssl_certificate     /etc/nginx/certs/server.crt;
+  ssl_certificate_key /etc/nginx/certs/server.key;
+
+  # SPA
+  location / {
+    proxy_pass http://frontend:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    try_files $uri /index.html;
+  }
+
+  # API
+  location /api/ {
+    proxy_pass http://api:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  # WebSocket
+  location /ws/ {
+    proxy_pass http://game_ws:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+  }
+}
+```
+
+### 4) `compose/docker-compose.tunnel.yml` — **override opcional para demo externa**
+
+```yaml
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    depends_on: [nginx]
+    # Quick Tunnel (sin cuenta ni dominio)
+    command: tunnel --no-autoupdate --url https://nginx:443
+    restart: unless-stopped
+```
+
+> **Nota:** Si se usa dominio y Tunnel con token, cambiar el servicio a:
+
+```yaml
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    restart: unless-stopped
+```
+
+### 5) `Makefile`
+
+```make
+COMPOSE := docker compose -f compose/docker-compose.yml
+OVR     := -f compose/docker-compose.tunnel.yml
+
+.PHONY: up down re logs ps test demo-tunnel stop-tunnel
+
+up: ## Localhost (https://localhost)
+	$(COMPOSE) up -d certgen
+	$(COMPOSE) up -d --build
+	@echo "✅ Abre https://localhost (acepta el certificado autofirmado)."
+
+down: ## Baja todo y limpia
+	$(COMPOSE) down -v --remove-orphans
+
+re: down up ## Recompila y levanta
+
+logs:
+	$(COMPOSE) logs -f --tail=200
+
+ps:
+	$(COMPOSE) ps
+
+test: ## Smoke tests
+	@echo "▶ HTTP→HTTPS..."; \
+	curl -skI http://localhost | grep -E '301|308' >/dev/null || (echo "FAIL" && exit 1); \
+	echo "▶ SPA 200..."; \
+	curl -skI https://localhost/ | grep '200' >/dev/null || (echo "FAIL" && exit 1); \
+	echo "▶ API reachable..."; \
+	curl -skI https://localhost/api/ | grep -E '200|401|403|404' >/dev/null || (echo "FAIL" && exit 1); \
+	echo "✅ Tests OK"
+
+# Demo externa con Quick Tunnel (imprime URL trycloudflare)
+demo-tunnel:
+	$(COMPOSE) -f compose/docker-compose.yml $(OVR) up -d
+	@sleep 2
+	@$(COMPOSE) -f compose/docker-compose.yml $(OVR) logs cloudflared | \
+	  grep -m1 -Eo 'https://[a-z0-9-]+\\.trycloudflare\\.com' || true
+
+stop-tunnel:
+	$(COMPOSE) -f compose/docker-compose.yml $(OVR) down -v --remove-orphans
+```
+
+---
+
+## Instrucciones para Copilot (tareas)
+
+1. **Frontend Dockerfile**: generar build de producción (Vite/React u otro), servir assets mediante el contenedor `frontend` en el puerto 8080 (o servir estáticos desde Nginx si se prefiere; en ese caso ajustar `proxy_pass`/`root`).
+2. **Backend Dockerfile**: exponer 8080, respetar variables de entorno y CORS si aplica (`Origin: https://localhost`).
+3. **Game WS Dockerfile**: servidor WebSocket en 8080; asegurar compatibilidad con `Upgrade/Connection` y `X-Forwarded-*` detrás de Nginx.
+4. **Healthchecks**: añadir `HEALTHCHECK` en imágenes de backend/ws si es sencillo.
+5. **Logs**: salida a stdout/stderr; opcionalmente formateo JSON en Nginx (no obligatorio para evaluación 42).
+6. **CORS/CSRF**: si la API valida origen, incluir `https://localhost` en allowlist.
+7. **SPA fallback**: confirmar que `try_files $uri /index.html;` es compatible con la ruta base del frontend.
+8. **Makefile help**: incluir descripciones (ya añadidas con `##`).
+9. **.env.example**: añadir `TUNNEL_TOKEN=` (vacío), `APP_HOST=`, `API_HOST=`, `WS_HOST=` para futuro modo dominio (no requerido para evaluación local).
+
+---
+
+## Pasar de localhost a dominio (opcional, fuera de evaluación)
+
+* Comprar un dominio y añadirlo a Cloudflare.
+* Crear **Cloudflare Tunnel** y guardar `TUNNEL_TOKEN`.
+* Cambiar el servicio `cloudflared` al modo token (ver arriba) y crear **Public Hostnames**: `app`, `api`, `ws` → todos a `https://nginx:443` o a servicios directos.
+* (Opcional) **Cloudflare Access (Zero Trust)** para proteger con OTP/SSO.
+
+---
+
+## Validación / Aceptación
+
+* `make up` levanta el stack y es accesible en **[https://localhost](https://localhost)** (aceptando el certificado).
+* `make test` pasa sin fallos.
+* `make demo-tunnel` imprime una URL `*.trycloudflare.com` funcional (HTTP y WS) para demo externa.
+* `make down` limpia correctamente.
+
+---
+
+## Notas de diseño
+
+* Mantener la evaluación 42 **totalmente local**. Nada externo para aprobar.
+* El modo túnel está aislado en un compose **override** para no contaminar el entorno de evaluación.
+* TLS local **autofirmado** para cumplir buenas prácticas sin depender de CA.
+* Nginx delante de todo: SPA, API y WS tras proxy.
+
+---
+
+## Anexo: Puertos abiertos (solo 80/443 en host) — Guía para Copilot
+
+**Objetivo:** garantizar que el host solo exponga `80/443` (o incluso solo `127.0.0.1:80/443` en evaluación 42) y que todos los demás servicios permanezcan **en la red interna de Docker**.
+
+### Cambios clave en `docker-compose.yml`
+
+* Publicar puertos **únicamente** en `nginx` y **anclados a 127.0.0.1**:
+
+```yaml
+docker-compose.yml (extracto)
+services:
+  nginx:
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+```
+
+* Para el resto de servicios, **eliminar** `ports:` y usar `expose:` (o nada) para que sólo sean accesibles internamente:
+
+```yaml
+  frontend:
+    expose: ["8080"]   # ❌ NO usar ports
+  api:
+    expose: ["8080"]
+  game_ws:
+    expose: ["8080"]
+```
+
+* Nginx debe hacer **proxy** por nombre de servicio y puerto interno (ya configurado en `app.conf`).
+
+### Quick Tunnel / Cloudflare
+
+* El túnel debe apuntar **solo** a `nginx` (80/443 internos). No publicar puertos adicionales:
+
+```yaml
+  cloudflared:
+    command: tunnel --no-autoupdate --url https://nginx:443
+```
+
+* En caso de dominio con token:
+
+```yaml
+  cloudflared:
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+```
+
+### Diagnóstico rápido (añadir al README o Makefile como referencia)
+
+```bash
+# Ver puertos publicados por contenedor
+docker ps --format 'table {{.Names}}	{{.Ports}}'
+
+# Ver listeners del host (Linux)
+ss -lntp | grep -E ':(80|443|3000|5173|8080|9090|3001|3100)'
+
+# Ver compose efectivo (por si algún override publica puertos)
+docker compose -f compose/docker-compose.yml config | sed -n '/services:/,$p' | grep -A2 ports
+```
+
+### Checklist de seguridad
+
+* [ ] Solo `nginx` con `ports:` y **atado a 127.0.0.1** para evaluación 42.
+* [ ] Todos los demás servicios con `expose:` o sin puertos publicados.
+* [ ] Nada expuesto en `0.0.0.0` salvo que sea intencional.
+* [ ] Acceso a UIs (Grafana/Prometheus, etc.) **vía Nginx** y (si aplica) con auth.
+* [ ] En modo demo con Tunnel, **únicamente** exponer `nginx:443` hacia fuera.
+
+### Nota para Copilot
+
+* Revisar todos los servicios en los `Dockerfile`/compose para que **no publiquen** puertos en el host.
+* Mantener los dev-servers (Vite 5173, etc.) **no expuestos**; el acceso siempre a través de `https://localhost` (Nginx) durante evaluación.
+* Validar con `make test` que HTTP→HTTPS, SPA, API y WS funcionan correctamente detrás de Nginx.

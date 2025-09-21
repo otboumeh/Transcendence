@@ -2,7 +2,7 @@
 
 header('Content-Type: application/json');
 
-require_once 'config/config.php';
+require_once __DIR__ . '/config/config.php';
 
 try {
     $database = databaseConnection();
@@ -10,7 +10,8 @@ try {
         'status' => 'ok',
         'message' => 'server up and database connected.'
     ]);
-} catch (Exception $e) {
+} catch (Exception $e)
+{
     http_response_code(500);// internal error
     echo json_encode([
         'status' => 'error',
