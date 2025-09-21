@@ -1,23 +1,10 @@
 <?php
 
-header('Content-Type: application/json');
+require_once 'config/config.php';
 
-require_once __DIR__ . '/config/config.php';
+$db = connectDatabase();
 
-try {
-    $database = databaseConnection();
-    echo json_encode([
-        'status' => 'ok',
-        'message' => 'server up and database connected.'
-    ]);
-} catch (Exception $e)
-{
-    http_response_code(500);// internal error
-    echo json_encode([
-        'status' => 'error',
-        'message' => 'unable to connect database.',
-        'error' => $e->getMessage()
-    ]);
-}
+if ($db)
+    echo json_encode(['status' => '1', 'database is ready!']);
 
 ?>

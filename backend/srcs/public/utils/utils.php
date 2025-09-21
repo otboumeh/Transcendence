@@ -1,7 +1,5 @@
 <?php
 
-require_once 'init.php';
-
 function response($status, $data) {
     if (status == 200) {
         json_encode(['success' => $data]);
