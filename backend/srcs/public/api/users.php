@@ -2,6 +2,7 @@
 
 require_once '../utils/init.php';
 
+// var_dump($context);
 $requestMethod = $context['requestMethod'];
 $queryId = $context['queryId'];
 
@@ -27,8 +28,8 @@ function userList($context) {
     $database = $context['database'];
 
     $sqlQuery = "SELECT id, username, elo FROM users";
-    $res = $database->exec($sqlQuery);
-    if (!res)
+    $res = $database->query($sqlQuery);
+    if (!$res)
         response(500, 'Sql error: ' . $database->lastErrorMsg());
 
     $data = [];
@@ -44,8 +45,10 @@ function userDataById($context) {
     $queryId = isId($context['queryId']);
 
     $sqlQuery = "SELECT username, email, elo FROM users WHERE id = '$queryId'";
-    $res = $database->single_query($sqlQuery);
+    $res = $database->query($sqlQuery);
     if (!$res)
+        response(500, 'Sql error: ' . $database->lastErrorMsg());
+    if (!($res->fetchArray(SQLITE3_ASSOC)))
         response(404, 'user not found');
 
     echo json_encode($res->fetchArray(SQLITE3_ASSOC));
@@ -55,15 +58,15 @@ function userDataById($context) {
 function createUser($context) {
     $database = $context['database'];
     $body = $context['body'];
-
+    
     $username = getAndCheck($body, 'username');
     $email = getAndCheck($body, 'email');
+    //var_dump($email);
     $pass = getAndCheck($body, 'password');
-
     $passwordHash = password_hash($pass, PASSWORD_DEFAULT);
     $sqlQuery = "INSERT INTO users (username, email, pass) VALUES ('$username', '$email', '$passwordHash')";
     $res = $database->exec($sqlQuery);
-    if (!res) {
+    if (!$res) {
         response(500, 'Sql error: ' . $database->lastErrorMsg());
     }
 

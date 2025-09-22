@@ -1,7 +1,7 @@
 <?php
 
 function response($status, $data) {
-    if (status == 200) {
+    if ($status == 200) {
         json_encode(['success' => $data]);
     } else {
         http_response_code($status);
@@ -18,10 +18,12 @@ function isId($num) {
 }
 
 function getAndCheck($body, $content) {
+    if (!isset($body[$content]))
+        response(400, 'bad request: missing field');
     $data = $body[$content];
     if (!$data)
         response(400, 'bad request');
-    if (!checkSqlInjection($data))
+    if (checkSqlInjection($data) === false)
         response(403, 'FORBIDDEN');
     return ($data);
 }
@@ -29,13 +31,13 @@ function getAndCheck($body, $content) {
 function checkSqlInjection($string) {
     $blacklist = [
         'select', 'insert', 'update', 'drop', 'truncate',
-        'union', 'or', 'and', '--', ';', '/*', '*/', '@@', '@',
+        'union', 'or', 'and', '--', ';', '/*', '*/', '@@',
         'char', 'nchar', 'varchar', 'nvarchar', 'exec', 'xp_'
     ];
     $lowerStr = strtolower($string);
     foreach ($blacklist as $word) {
-        if (strpos($lowerStr, $word))
-            return (false);
+        if (strpos($lowerStr, $word) !== false)
+            return false;
     }
     return (true);
 }

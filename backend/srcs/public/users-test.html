@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tester - API Users</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 18px; background:#f6f8fa; color:#111; }
+    h1 { font-size:1.4rem; margin-bottom:6px; }
+    .card { background:white; padding:12px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.06); margin-bottom:12px; }
+    label { display:block; font-size:.85rem; margin-top:8px; }
+    input[type="text"], input[type="password"], input[type="number"], textarea { width:100%; padding:8px; font-size:.95rem; margin-top:6px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; }
+    button { margin-top:10px; padding:8px 12px; border-radius:6px; border:0; background:#0b76ef; color:white; cursor:pointer; }
+    button.secondary { background:#666; }
+    pre { background:#0f1724; color:#e6eef8; padding:12px; border-radius:8px; max-height:360px; overflow:auto; }
+    .row { display:flex; gap:12px; }
+    .col { flex:1; }
+    small { color:#666; }
+  </style>
+</head>
+<body>
+  <h1>Prueba rápida - API &lt;users.php&gt;</h1>
+  <div class="card">
+    <label>API base URL
+      <input id="apiUrl" type="text" value="/api/users.php" />
+      <small>Pon aquí la ruta correcta si no es <code>/api/users.php</code> (ej: <code>http://localhost:8080/api/users.php</code>)</small>
+    </label>
+
+    <label>Authorization token (si hace falta)
+      <input id="authToken" type="text" placeholder="Bearer xxxxx or raw token" />
+      <small>Se añadirá como cabecera <code>Authorization</code></small>
+    </label>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div class="card">
+        <h2>Listar usuarios</h2>
+        <button id="btnList">GET /users</button>
+      </div>
+
+      <div class="card">
+        <h2>Ver usuario por id</h2>
+        <label>ID
+          <input id="getId" type="number" placeholder="1" />
+        </label>
+        <button id="btnGetById">GET /users?id=...</button>
+      </div>
+
+      <div class="card">
+        <h2>Crear usuario</h2>
+        <label>username<input id="createUsername" type="text" value="nuevoUsuario" /></label>
+        <label>email<input id="createEmail" type="text" value="n@prueba.test" /></label>
+        <label>password<input id="createPassword" type="password" value="secret123" /></label>
+        <button id="btnCreate">POST /users</button>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <h2>Editar usuario (PATCH)</h2>
+        <small>El endpoint exige que <code>tokenId === queryId</code> según tu lógica</small>
+        <label>ID (query param)
+          <input id="editId" type="number" placeholder="1" />
+        </label>
+        <label>username<input id="editUsername" type="text" /></label>
+        <label>email<input id="editEmail" type="text" /></label>
+        <label>password (opcional — si se envía actualizará la pass)
+          <input id="editPassword" type="password" />
+        </label>
+        <button id="btnEdit">PATCH /users?id=...</button>
+      </div>
+
+      <div class="card">
+        <h2>Borrar usuario (DELETE)</h2>
+        <label>ID
+          <input id="deleteId" type="number" placeholder="1" />
+        </label>
+        <button id="btnDelete" class="secondary">DELETE /users?id=...</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Resultado</h2>
+    <pre id="output">{ "ready": true }</pre>
+  </div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const output = $('output');
+
+  function show(o) {
+    if (typeof o === 'string') {
+      output.textContent = o;
+    } else {
+      try {
+        output.textContent = JSON.stringify(o, null, 2);
+      } catch(e) {
+        output.textContent = String(o);
+      }
+    }
+  }
+
+  function apiRequest(method, url, body = null) {
+    const apiBase = $('apiUrl').value.trim();
+    const fullUrl = apiBase + (url || '');
+    const token = $('authToken').value.trim();
+    const headers = {};
+    if (body !== null) headers['Content-Type'] = 'application/json';
+    if (token) headers['Authorization'] = token;
+    return fetch(fullUrl, {
+      method,
+      headers,
+      body: body !== null ? JSON.stringify(body) : null,
+      // credentials: 'include' // descomenta si usas cookies
+    }).then(async res => {
+      const text = await res.text();
+      // intenta parsear JSON, si no, devuelve texto crudo
+      try { return { status: res.status, ok: res.ok, data: JSON.parse(text) }; }
+      catch(e) { return { status: res.status, ok: res.ok, data: text }; }
+    });
+  }
+
+  // List
+  $('btnList').addEventListener('click', async () => {
+    show('cargando...');
+    try {
+      const r = await apiRequest('GET', '');
+      show(r);
+    } catch (err) { show({ error: String(err) }); }
+  });
+
+  // Get by id
+  $('btnGetById').addEventListener('click', async () => {
+    const id = $('getId').value.trim();
+    if (!id) return show({ error: 'pon un id' });
+    show('cargando...');
+    try {
+      const r = await apiRequest('GET', '?id=' + encodeURIComponent(id));
+      show(r);
+    } catch (err) { show({ error: String(err) }); }
+  });
+
+  // Create
+  $('btnCreate').addEventListener('click', async () => {
+    const body = {
+      username: $('createUsername').value.trim(),
+      email: $('createEmail').value.trim(),
+      password: $('createPassword').value
+    };
+    show('cargando...');
+    try {
+      const r = await apiRequest('POST', '', body);
+      show(r);
+    } catch (err) { show({ error: String(err) }); }
+  });
+
+  // Edit (PATCH)
+  $('btnEdit').addEventListener('click', async () => {
+    const id = $('editId').value.trim();
+    if (!id) return show({ error: 'pon un id para editar' });
+    const body = {};
+    if ($('editUsername').value) body.username = $('editUsername').value.trim();
+    if ($('editEmail').value) body.email = $('editEmail').value.trim();
+    if ($('editPassword').value) body.password = $('editPassword').value;
+    show('cargando...');
+    try {
+      const r = await apiRequest('PATCH', '?id=' + encodeURIComponent(id), body);
+      show(r);
+    } catch (err) { show({ error: String(err) }); }
+  });
+
+  // Delete
+  $('btnDelete').addEventListener('click', async () => {
+    const id = $('deleteId').value.trim();
+    if (!id) return show({ error: 'pon un id para borrar' });
+    if (!confirm('Borrar usuario id=' + id + '?')) return;
+    show('cargando...');
+    try {
+      const r = await apiRequest('DELETE', '?id=' + encodeURIComponent(id));
+      show(r);
+    } catch (err) { show({ error: String(err) }); }
+  });
+
+  // Small helper: pre-fill some fields for convenience
+  (function prefill(){
+    const u = '1';
+    $('getId').value = u;
+    $('editId').value = u;
+    $('deleteId').value = u;
+  })();
+</script>
+</body>
+</html>

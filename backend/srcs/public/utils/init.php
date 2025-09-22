@@ -12,7 +12,7 @@ $authToken = $_SERVER['HTTP_AUTHORIZATION'] ?? null;
 $requestMethod = $_SERVER['REQUEST_METHOD'];
 $auth = checkAuthorization($authToken);
 $idFromAuth = extractIdFromAuth($authToken, $auth);
-$bodyArray = json_decode(file_get_contents('php://input'));
+$bodyArray = json_decode(file_get_contents('php://input'), true);
 $queryId = $_GET['id'] ?? null;
 
 $context = [
