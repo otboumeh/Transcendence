@@ -3063,3 +3063,5 @@
 2025/09/21 00:30:11 [warn] 1#1: duplicate value "TLSv1.3" in /etc/nginx/conf.d/app-secure.conf:24
 2025/09/21 00:30:11 [emerg] 1#1: "ssl_prefer_server_ciphers" directive is duplicate in /etc/nginx/conf.d/app-secure.conf:25
 2025/09/21 01:32:39 [error] 22#22: *11 directory index of "/var/www/html/" is forbidden, client: 172.18.0.1, server: _, request: "GET / HTTP/1.1", host: "localhost:80", referrer: "https://potential-space-fishstick-7qrx4p4jj62ww7p.github.dev/"
+2025/09/22 15:12:03 [error] 21#21: *1 directory index of "/var/www/html/" is forbidden, client: 172.22.0.1, server: _, request: "GET / HTTP/1.1", host: "localhost"
+2025/09/22 16:01:07 [notice] 67#67: signal process started

@@ -1,12 +1,7 @@
 <?php
 
 function connectDatabase () {
-    $databasePath = getenv('DB_DATABASE');
-
-    if (!file_exists($databasePath)) {
-        touch($databasePath);
-    }
-
+    $databasePath = '/var/www/html/database/database.sqlite';
     $tablesPath = __DIR__ . '/schema.sql';
     try {
         $database = new SQLite3($databasePath);

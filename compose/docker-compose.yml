@@ -12,7 +12,7 @@ services:
       - ../nginx/conf.d:/etc/nginx/conf.d:ro
       - ../scripts/certs:/etc/nginx/certs:ro
       - ../logs/nginx:/var/log/nginx
-      - ../backend/srcs/public:/var/www/html:ro
+      - ../backend/public:/var/www/html/public
     command: nginx -g "daemon off;"
     networks: [default, monitoring]
     healthcheck:
@@ -37,8 +37,9 @@ services:
       dockerfile: ../docker/backend/Dockerfile
     container_name: transcendence-backend
     volumes:
-      - ../backend/srcs/public:/var/www/html
-      - ../backend/srcs/database:/var/www/database
+      - ../backend/public:/var/www/html/public
+      - ../backend/database:/var/www/html/database
+      - ../backend/vendor:/var/www/html/vendor
     expose:
       - "${BACKEND_PORT:-9000}"
     environment:

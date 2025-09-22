@@ -3,7 +3,7 @@
 require_once __DIR__ . '/header_auth.php';
 require_once __DIR__ . '/gmail_api/mail_gmail.php';
 
-$database = databaseConnection();	// Abre o crea el archivo de base de datos SQLite y devuelve un objeto conexión listo para usar. tipo del objeto: SQLite3
+$database = connectDatabase();	// Abre o crea el archivo de base de datos SQLite y devuelve un objeto conexión listo para usar. tipo del objeto: SQLite3
 $requestMethod = $_SERVER['REQUEST_METHOD'];	// Lee el método HTTP dWe la petición actual (GET, POST, PATCH, DELETE).
 $bodyJSON = file_get_contents('php://input');	// Lee el cuerpo crudo de la petición HTTP (bytes). Útil para JSON enviado por el cliente.
 $body = json_decode($bodyJSON, true);	// El cuerpo del HTTP request debería ser JSON que represente un objeto. En PHP eso se traduce en un array asociativo. Si no lo es, el JSON es inválido o no tiene la estructura esperada.
@@ -23,7 +23,7 @@ $username = $body['username'];
 $password = $body['password'];
 
 // Preparamos una statement (stmt1) para realizar un query a la tabla 'users'. necesitamos id, el hash y el mail. 
-$stmt1 = $database->prepare("SELECT id, password_hash, email FROM users WHERE username = :username");
+$stmt1 = $database->prepare("SELECT id, pass, email FROM users WHERE username = :username");
 $stmt1->bindValue(':username', $username);
 $result1 = $stmt1->execute(); // Devuelve un objeto de tipo SQLite3Result, ese objeto $result1 es un cursor sobre las filas que devuelve la consulta. Al inicio, el cursor está antes de la primera fila. Cada vez que llamas a fetchArray(), el cursor avanza una fila. Cuando ya no hay filas → devuelve false.
 if (!$result1)
@@ -33,7 +33,7 @@ if (!$row)
 	errorSend(401, 'invalid credentials');
 
 // Verificamos que la contraseña introducida y la guardad sean identicas.
-if (!password_verify($password, $row['password_hash'])) // la variable 'password_hash' contiene el hash + los medios para desencriptarlo
+if (!password_verify($password, $row['pass'])) // la variable 'password_hash' contiene el hash + los medios para desencriptarlo
 	errorSend(401, 'invalid credentials');
 
 // Generamos un código númerico aleatorio de 6 cifras (rellenamos con 0s empezando por la izq)
