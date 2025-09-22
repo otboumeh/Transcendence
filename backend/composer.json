@@ -5,10 +5,11 @@
     "require": {
         "php": ">=8.2",
         "robthree/twofactorauth": "^2.0",
-        "firebase/php-jwt": "^6.0",
+        "firebase/php-jwt": "^6.11",
         "vlucas/phpdotenv": "^5.5",
         "ramsey/uuid": "^4.7",
-        "monolog/monolog": "^3.4"
+        "monolog/monolog": "^3.4",
+        "google/apiclient": "^2.17"
     },
     "autoload": {
         "psr-4": {
