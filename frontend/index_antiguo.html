@@ -14,51 +14,30 @@
 </head>
 
 <body class="font-pixel min-h-screen flex flex-col relative overflow-hidden">
+  <!-- Background video -->
   <video autoplay muted loop playsinline class="absolute top-0 left-0 w-full h-full object-cover -z-10">
     <source src="./assets/background1.mp4" type="video/mp4">
     Your browser does not support the video tag.
   </video>
 
+  <!-- Optional overlay to improve text readability -->
   <div class="absolute inset-0 bg-black/30 -z-10"></div>
 
+  <!-- Barra superior -->
   <header class="bg-poke-violet/50 text-poke-white text-center p-4">
     <p>PONG</p>
   </header>
 
   <main class="flex-grow flex items-center justify-center p-4">
-    <div id="app"></div> </main>
+    <div id="app"></div> <!-- SPA -->
+  </main>
 
+  <!-- Barra inferior -->
   <footer class="bg-poke-violet/50 text-poke-white text-center p-4">
     <p>2025 ©</p>
   </footer>
 
   <script type="module" src="./dist/main.js"></script>
-
-  <button id="testApiButton" 
-          class="absolute bottom-20 left-1/2 -translate-x-1/2 p-2 rounded-md bg-white/80 text-violet-800 hover:bg-white transition-colors shadow-lg">
-    Probar Conexión con Backend
-  </button>
-
-  <script>
-    document.getElementById('testApiButton').addEventListener('click', () => {
-      console.log('Intentando contactar con el backend...');
-
-      fetch('/api/test.php')
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          console.log('✅ Respuesta recibida del backend:');
-          console.log(data);
-        })
-        .catch(error => {
-          console.error('❌ Hubo un error al llamar a la API:', error);
-        });
-    });
-  </script>
 </body>
 
 </html>

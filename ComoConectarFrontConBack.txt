@@ -1,0 +1,7 @@
+En el código del frontend, todas las llamadas a la API deben hacerse a rutas relativas, 
+no a un dominio y puerto absolutos. El navegador las enviará automáticamente al servidor NGINX,
+que las redirigira al backend.
+
+    Incorrecto: fetch('http://localhost:8085/api/users')
+
+    Correcto: fetch('/api/users')
