@@ -15,7 +15,6 @@ import { MatchHistoryView } from "./views/MatchHistory.js";
 
 
 
-// Define las interfaces y el estado global
 interface Player {
   alias: string;
   user: string;
@@ -36,12 +35,10 @@ export let currentLang: Lang = (localStorage.getItem("playerLang") as Lang) || "
 export function setLanguage(lang: Lang): void {
   currentLang = lang;
   localStorage.setItem("playerLang", lang);
-  // re-render current view so any language-aware UI can update
   router();
 }
 
 
-// La función navigate ahora debe ser exportada para que las vistas puedan importarla
 export function navigate(path: string): void {
   if (window.location.pathname !== path) {
     window.history.pushState({}, "", path);
@@ -49,7 +46,6 @@ export function navigate(path: string): void {
   router();
 }
 
-// El router ahora es mucho más limpio
 function router(): void {
   const app = document.getElementById("app");
   if (!app) return;
@@ -118,7 +114,7 @@ window.addEventListener("load", () => {
   if (stored) {
     state.player = JSON.parse(stored);
   }
-  updateHeader(state); // 👈 render avatar if it’s already stored
+  updateHeader(state);
 
   if (!state.player.alias) {
     navigate("/register");
