@@ -1,6 +1,7 @@
 // Importa las funciones de cada vista
 import { RegisterView } from "./views/Register.js";
 import { ProfileView } from "./views/Profile.js";
+import { Profile1View } from "./views/Profile1.js";
 import { ChooseView } from "./views/Choose.js";
 import { AvatarView } from "./views/Avatar.js";
 import { GameView } from "./views/Game.js";
@@ -41,6 +42,9 @@ function router() {
             break;
         case "/profile":
             ProfileView(app, state);
+            break;
+        case "/profile1":
+            Profile1View(app, state);
             break;
         case "/choose":
             ChooseView(app, state);

@@ -17,8 +17,14 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Configurar directorio de trabajo
 WORKDIR /var/www/html
 
+# copiamos entrypoint.sh, nos damos permisos de ejecución y lo ejecutamos
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
 # Copiar archivos del proyecto
 COPY composer.* ./
+
 # Instalar dependencias con Composer
 RUN composer install --no-scripts --no-autoloader
 

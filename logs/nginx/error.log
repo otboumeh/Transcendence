@@ -3065,3 +3065,10 @@
 2025/09/21 01:32:39 [error] 22#22: *11 directory index of "/var/www/html/" is forbidden, client: 172.18.0.1, server: _, request: "GET / HTTP/1.1", host: "localhost:80", referrer: "https://potential-space-fishstick-7qrx4p4jj62ww7p.github.dev/"
 2025/09/22 15:12:03 [error] 21#21: *1 directory index of "/var/www/html/" is forbidden, client: 172.22.0.1, server: _, request: "GET / HTTP/1.1", host: "localhost"
 2025/09/22 16:01:07 [notice] 67#67: signal process started
+2025/09/23 12:20:03 [alert] 1#1: worker process 21 exited on signal 9
+2025/09/23 12:20:03 [alert] 1#1: worker process 22 exited on signal 9
+2025/09/23 12:20:03 [alert] 1#1: worker process 26 exited on signal 9
+2025/09/23 12:20:03 [alert] 1#1: worker process 23 exited on signal 9
+2025/09/23 12:20:03 [alert] 1#1: worker process 25 exited on signal 9
+2025/09/23 12:20:03 [alert] 1#1: worker process 24 exited on signal 9
+2025/09/24 17:24:32 [warn] 23#23: *7 an upstream response is buffered to a temporary file /var/cache/nginx/proxy_temp/1/00/0000000001 while reading upstream, client: 172.18.0.1, server: localhost, request: "GET /assets/pong_logo.png HTTP/1.1", upstream: "http://172.18.0.2:3000/assets/pong_logo.png", host: "localhost:8085", referrer: "http://localhost:8085/"

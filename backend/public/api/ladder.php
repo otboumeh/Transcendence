@@ -1,49 +1,37 @@
 <?php
 
-require_once '../utils/init.php';
+require_once __DIR__ . '/header.php';
 
-$requiredMethod = $context['requestMethod'];
-$queryId = $context['queryId'];
+$database = connectDatabase();
+$requestMethod = $_SERVER['REQUEST_METHOD'];
+$queryId = $_GET['id'] ?? null;
+$res = null;
 
-if ($requiredMethod !== 'GET')
-    response(405, 'unauthorized');
+if ($requestMethod !== 'GET')
+	errorSend(405, 'unauthorized method');
 
-if (!$queryId)
-    globalRankingList($context);
-friendsRankingList($context);
-
-function globalRankingList($context) {
-    if (!$context['auth'])
-        response(403, 'forbidden access');
-    
-    $database = $context['database'];
-    $sqlQuery = "SELECT u.id, u.username, u.elo FROM users u INNER JOIN friends f 
-        ON (u.id = f.friend_id OR u.id = f.user_id) WHERE $id IN (f.user_id, f.friend_id)
-        AND u.id != $id ORDER BY u.elo DESC";
-    $res = $database->query($sqlQuery);
-    if (!$res)
-        response(500, 'Sql error: ' . $database->lastErrorMsg());
-    $data = [];
-    while ($row = $res->fetchArray(SQLITE3_ASSOC))
-        $data[] = $row;
-    echo json_encode($data, JSON_PRETTY_PAINT);
-    exit ;
+if ($queryId) // selecciona las estadisticas de los amigos del usuario seleccionados
+{
+	if (!checkJWT($queryId))
+		errorSend(403, 'forbidden access'); // u. & r. Son alias de las tablas. Se utilizan para referenciar de forma inequívoca a las columnas cuando se trabaja con más de una tabla en la misma consulta
+	$sqlQuery = "SELECT u.user_id, u.username, u.elo, r.games_played, r.games_win, r.games_lose
+	FROM users u INNER JOIN ranking r ON u.user_id = r.user_id
+	WHERE u.user_id IN (SELECT friend_id FROM friends WHERE user_id = :user_id)"; // INNER JOIN combina filas de dos tablas y prácticamente siempre va acompañado de la cláusula ON para especificar la condición que las une.
+	$bind1 = [':user_id', $queryId, SQLITE3_INTEGER];
+	$res = doQuery($database, $sqlQuery, $bind1);
+}
+else // selecciona las estadisticas de todos los usuarios
+{
+	$sqlQuery = "SELECT u.user_id, u.username, u.elo, r.games_played, r.games_win, r.games_lose INNER JOIN
+	ranking r ON u.user_id = r.user_id ORDER BY u.elo DESC";
+	$res = doQuery($database, $sqlQuery);
 }
 
-function friendsRankingList($context) {
-    if (!$context['auth'])
-        response(403, 'forbidden access');
-    
-    $database = $context['database'];
-    $sqlQuery = "SELECT id, username, elo FROM users ORDER BY elo DESC";
-    $res = $database->query($sqlQuery);
-    if (!$res)
-        response(500, 'Sql error: ' . $database->lastErrorMsg());
-    $data = [];
-    while ($row = $res->fetchArray(SQLITE3_ASSOC))
-        $data[] = $row;
-    echo json_encode($data, JSON_PRETTY_PAINT);
-    exit ;
-}
+if (!$res)
+	errorSend(500, 'Sql error: ' . $database->lastErrorMsg());
+$data = [];
+while ($row = $res->fetchArray(SQLITE3_ASSOC))
+	$data[] = $row;
+successSend($data, JSON_PRETTY_PRINT);
 
 ?>

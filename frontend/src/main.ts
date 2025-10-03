@@ -1,6 +1,7 @@
 // Importa las funciones de cada vista
 import { RegisterView } from "./views/Register.js";
 import { ProfileView } from "./views/Profile.js";
+import { Profile1View } from "./views/Profile1.js";
 import { ChooseView } from "./views/Choose.js";
 import { AvatarView } from "./views/Avatar.js";
 import { GameView } from "./views/Game.js";
@@ -15,6 +16,7 @@ import { MatchHistoryView } from "./views/MatchHistory.js";
 
 
 
+// Define las interfaces y el estado global
 interface Player {
   alias: string;
   user: string;
@@ -35,10 +37,12 @@ export let currentLang: Lang = (localStorage.getItem("playerLang") as Lang) || "
 export function setLanguage(lang: Lang): void {
   currentLang = lang;
   localStorage.setItem("playerLang", lang);
+  // re-render current view so any language-aware UI can update
   router();
 }
 
 
+// La función navigate ahora debe ser exportada para que las vistas puedan importarla
 export function navigate(path: string): void {
   if (window.location.pathname !== path) {
     window.history.pushState({}, "", path);
@@ -46,6 +50,7 @@ export function navigate(path: string): void {
   router();
 }
 
+// El router ahora es mucho más limpio
 function router(): void {
   const app = document.getElementById("app");
   if (!app) return;
@@ -58,6 +63,9 @@ function router(): void {
       break;
     case "/profile":
       ProfileView(app, state);
+      break;
+    case "/profile1":
+      Profile1View(app, state);
       break;
     case "/choose":
       ChooseView(app, state);
@@ -114,7 +122,7 @@ window.addEventListener("load", () => {
   if (stored) {
     state.player = JSON.parse(stored);
   }
-  updateHeader(state);
+  updateHeader(state); // 👈 render avatar if it’s already stored
 
   if (!state.player.alias) {
     navigate("/register");
