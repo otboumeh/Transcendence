@@ -146,7 +146,7 @@ export function Profile1View(app, state) {
             state.player.user = username;
             localStorage.setItem("player", JSON.stringify(state.player));
             if (state.player.avatar === 0)
-                navigate("/choose");
+                navigate("/login");
             else
                 navigate("/");
         }

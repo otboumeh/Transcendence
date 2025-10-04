@@ -143,7 +143,7 @@ export function Profile1View(app: HTMLElement, state: any): void {
         // Actualizamos estado local y navegamos si es necesario
         state.player.user = username;
         localStorage.setItem("player", JSON.stringify(state.player));
-        if (state.player.avatar === 0) navigate("/choose");
+        if (state.player.avatar === 0) navigate("/login");
         else navigate("/");
       } catch (err) {
         console.error(err);

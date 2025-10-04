@@ -30,7 +30,7 @@ export function RegisterView(app, state) {
     (_b = document.getElementById("regButton")) === null || _b === void 0 ? void 0 : _b.addEventListener("click", () => {
         state.player.alias = "42User";
         state.player.user = "42Userrr";
-        navigate("/profile");
+        navigate("/login");
     });
 }
 ;

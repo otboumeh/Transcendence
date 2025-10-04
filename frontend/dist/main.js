@@ -13,6 +13,7 @@ import { updateHeader } from "./views/Header.js";
 import { StatsView } from "./views/Statistics.js";
 import { LanguageView } from "./views/Language.js";
 import { MatchHistoryView } from "./views/MatchHistory.js";
+import { LoginView } from "./views/Login.js";
 const state = {
     player: { alias: "", user: "", avatar: 0, matches: 10, victories: 7, defeats: 8 }
 };
@@ -45,6 +46,9 @@ function router() {
             break;
         case "/profile1":
             Profile1View(app, state);
+            break;
+        case "/login":
+            LoginView(app, state);
             break;
         case "/choose":
             ChooseView(app, state);
@@ -85,7 +89,7 @@ function updateHeaderFooterVisibility(route) {
     const footer = document.querySelector("footer");
     if (!header || !footer)
         return;
-    const hiddenRoutes = ["/register", "/profile", "/choose", "/avatar"];
+    const hiddenRoutes = ["/register", "/profile", "/choose", "/avatar", "/login", "/profile1"];
     if (hiddenRoutes.includes(route)) {
         header.classList.add("hidden");
         footer.classList.add("hidden");
@@ -112,3 +116,4 @@ window.addEventListener("popstate", router);
 // tsc && docker build -t pixel-theme . && docker run -p 3000:3000 pixel-theme
 // docker build -t pixel-theme .
 //  docker run -p 3000:3000 pixel-theme
+//npx tsc --watch

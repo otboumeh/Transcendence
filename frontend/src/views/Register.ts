@@ -32,6 +32,6 @@ export function RegisterView(app: HTMLElement, state: any): void {
   document.getElementById("regButton")?.addEventListener("click", () => {
     state.player.alias = "42User";
     state.player.user = "42Userrr";
-    navigate("/profile");
+    navigate("/login");
   }); 
 };
