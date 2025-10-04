@@ -40,6 +40,8 @@ services:
       - ../backend/public:/var/www/html/public
       - ../backend/database:/var/www/html/database
       - ../backend/vendor:/var/www/html/vendor
+      - ../backend/secrets:/var/www/html/secrets
+
     expose:
       - "${BACKEND_PORT:-9000}"
     environment:
